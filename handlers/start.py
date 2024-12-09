@@ -1,5 +1,5 @@
 from aiogram import F
-from aiogram.types import Message
+from aiogram.types import Message, CallbackQuery
 from aiogram.filters import Command, CommandStart
 from loader import router_user
 from keyboards.default.main import *
