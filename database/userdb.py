@@ -67,3 +67,12 @@ async def setup_database():
 
         # Jadval yaratish muvaffaqiyatli yakunlandi
         print("Database and tables setup complete!")
+
+async def create_user(name, surname, age, number):
+    async with aiosqlite.connect(DATABASE) as db:
+        await db.execute(
+            "INSERT INTO users (name, surname, age, phone_number) VALUES (?, ?, ?, ?)",
+            (name, surname, age, number)
+        )
+        await db.commit()
+
