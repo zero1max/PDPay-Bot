@@ -6,7 +6,8 @@ from keyboards.inline.main import *
 from keyboards.default.main import *
 from aiogram.fsm.context import FSMContext
 from aiogram.fsm.state import State, StatesGroup
-from database.userdb import create_user
+from database.userdb import create_user, create_card
+from random import *
 
 class UserAge(StatesGroup):
     user_age = State()
@@ -30,11 +31,9 @@ async def start_uz(callback: CallbackQuery, state: FSMContext):
 async def user_age(msg: Message, state: FSMContext):
     await state.update_data(user_age=msg.text)
     data = await state.get_data()
-    print(data)
     age = data['user_age']
-    print(age)
     if age >= '16':
-        await msg.answer("Karta yaratamizmi?", reply_markup=create_card)
+        await msg.answer("Karta yaratamizmi?", reply_markup=choice_create_card)
     else:
         await msg.answer("Siz hali balog'at yoshiga to'lmagansiz!")
 
@@ -69,13 +68,27 @@ async def surname(msg: Message, state: FSMContext):
     await msg.answer("Yoshingizni yuboring!")
     await state.set_state(UserInformations.age)
 
+
 @router_user.message(UserInformations.age)
 async def age(msg: Message, state: FSMContext):
     await state.update_data(age=msg.text)
     data = await state.get_data()
-    print(data)
+
+    # Foydalanuvchi ma'lumotlari
     name = data['name']
     surname = data['surname']
     age = data['age']
     number = data['number']
-    await create_user(name, surname, age, number)
+
+    # Foydalanuvchini bazaga qo'shish
+    user_id = await create_user(name, surname, age, number)
+    print(user_id)
+    await msg.answer("Siz ro'yxatdan o'tdingiz!")
+
+    # Karta raqami va PIN kodini yaratish
+    card_number = randint(1000000000000000, 1000000000000000)
+    card_pin = randint(1000, 9999)
+    await create_card(user_id, str(card_number), str(card_pin))  # Kartani bazaga qo'shish
+
+    # Foydalanuvchiga karta ma'lumotlarini yuborish
+    await msg.answer(f"Your card number is {card_number} and your card PIN is {card_pin}")
