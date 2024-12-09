@@ -9,3 +9,12 @@ choice_language = InlineKeyboardMarkup(
         ]
     ]
 )
+
+create_card = InlineKeyboardMarkup(
+    inline_keyboard=[
+        [
+            InlineKeyboardButton(text="Ha", callback_data='kartaha'),
+            InlineKeyboardButton(text="Yo'q", callback_data="kartayoq")
+        ]
+    ]
+)
