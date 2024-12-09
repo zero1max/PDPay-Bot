@@ -1,4 +1,5 @@
 import aiosqlite
+from random import *
 
 DATABASE = 'users.db'
 
@@ -11,7 +12,7 @@ async def setup_database():
                 name TEXT NOT NULL,                      -- Ismi
                 surname TEXT NOT NULL,                   -- Familyasi
                 age INTEGER NOT NULL,                    -- Yoshi
-                phone_number TEXT UNIQUE,                -- Telefon raqami
+                phone_number TEXT,                       -- Telefon raqami
                 created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
             )
         ''')
@@ -75,4 +76,13 @@ async def create_user(name, surname, age, number):
             (name, surname, age, number)
         )
         await db.commit()
+
+
+async def create_card(user_id, card_number, card_pin, balance=0.00):
+    async with aiosqlite.connect(DATABASE) as db:
+        await db.execute("""INSERT INTO cards (user_id, card_number, card_pin, balance) VALUES (?, ?, ?, ?)""",
+            (user_id, card_number, card_pin, balance)
+        )
+        await db.commit()
+        print("Card created successfully!")
 
