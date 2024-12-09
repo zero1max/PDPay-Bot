@@ -10,7 +10,7 @@ choice_language = InlineKeyboardMarkup(
     ]
 )
 
-create_card = InlineKeyboardMarkup(
+choice_create_card = InlineKeyboardMarkup(
     inline_keyboard=[
         [
             InlineKeyboardButton(text="Ha", callback_data='kartaha'),
