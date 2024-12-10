@@ -6,7 +6,7 @@ from keyboards.inline.main import *
 from keyboards.default.main import *
 from aiogram.fsm.context import FSMContext
 from aiogram.fsm.state import State, StatesGroup
-from database.userdb import create_user, create_card, get_user, user_exists
+from database.userdb import create_user, create_card, get_user, user_exists, change_password
 from random import *
 from PIL import Image, ImageDraw, ImageFont
 
@@ -19,6 +19,11 @@ class UserInformations(StatesGroup):
     name = State()
     surname = State()
     age = State()
+
+class NewPassword(StatesGroup):
+    now_password = State()
+    new_password = State()
+    again_enter = State()
 
 
 def edit_card_image(carta_path, output_path, card_number, name, expiry_date):
@@ -61,6 +66,7 @@ async def start_uz(callback: CallbackQuery, state: FSMContext):
         await callback.message.delete()
         await callback.answer()  # Callbackni yopish
 
+# --------------------------------------- Create card ---------------------------------------------------------
 @router_user.message(UserAge.user_age)
 async def user_age(msg: Message, state: FSMContext):
     await state.update_data(user_age=msg.text)
@@ -142,3 +148,38 @@ async def age(msg: Message, state: FSMContext):
         parse_mode="HTML"
     )
     await msg.answer("Iltimos qayta /start buyrug'ini bering!")
+
+# ------------------------------------------ Password O'zgaritirish ------------------------------------
+
+@router_user.callback_query(F.data == 'parolalmashtirish')
+async def parolalmashtirish(callback: CallbackQuery, state: FSMContext):
+    await callback.message.delete()
+    await callback.message.answer("Hozirgi parolingizni yuboring!")
+    await state.set_state(NewPassword.now_password)
+
+@router_user.message(NewPassword.now_password)
+async def now_password(msg: Message, state: FSMContext):
+    await state.update_data(now_password=msg.text)
+    await msg.answer("yangi Parolni yuboring!")
+    await state.set_state(NewPassword.new_password)
+
+@router_user.message(NewPassword.new_password)
+async def new_password(msg: Message, state: FSMContext):
+    await state.update_data(new_password=msg.text)
+    await msg.answer("Parolni qayta yuboring!")
+    await state.set_state(NewPassword.again_enter)
+
+@router_user.message(NewPassword.again_enter)
+async def again_password(msg: Message, state: FSMContext):
+    await state.update_data(again_password=msg.text)
+    data = await state.get_data()
+    now_password = data['now_password']
+    new_password = data['new_password']
+    again_password = data['again_password']
+    check = await change_password(msg.from_user.id, now_password, new_password, again_password)
+    if check:
+        await msg.answer("Parolingiz o'zgartirildi!", reply_markup=menu_users)
+        await state.clear()
+    else:
+        await msg.answer("Nimadur xato ketdi")
+

@@ -9,6 +9,7 @@ async def setup_database():
         await db.execute('''
             CREATE TABLE IF NOT EXISTS users (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,   -- Foydalanuvchi uchun unikal identifikator
+                chat_id INTEGER NOT NULL,               -- Foydalanuvchi ID si
                 name TEXT NOT NULL,                      -- Ismi
                 surname TEXT NOT NULL,                   -- Familyasi
                 age INTEGER NOT NULL,                    -- Yoshi
@@ -69,13 +70,20 @@ async def setup_database():
         # Jadval yaratish muvaffaqiyatli yakunlandi
         print("Database and tables setup complete!")
 
-async def create_user(name, surname, age, number):
+async def create_user(chat_id, name, surname, age, number):
     async with aiosqlite.connect(DATABASE) as db:
         await db.execute(
-            "INSERT INTO users (name, surname, age, phone_number) VALUES (?, ?, ?, ?)",
-            (name, surname, age, number)
+            "INSERT INTO users (chat_id, name, surname, age, phone_number) VALUES (?, ?, ?, ?, ?)",
+            (chat_id, name, surname, age, number)
         )
         await db.commit()
+
+
+async def get_user(chat_id):
+    async with aiosqlite.connect(DATABASE) as db:
+        async with db.execute("SELECT * FROM users WHERE chat_id = ?", (chat_id,)) as cursor:
+            user = await cursor.fetchone()
+            return user is not None
 
 
 async def create_card(user_id, card_number, card_pin, balance=0.00):
@@ -86,3 +94,27 @@ async def create_card(user_id, card_number, card_pin, balance=0.00):
         await db.commit()
         print("Card created successfully!")
 
+async def user_exists(chat_id):
+    async with aiosqlite.connect(DATABASE) as db:
+        async with db.execute("SELECT * FROM users WHERE chat_id = ?", (chat_id,)) as cursor:
+            user = await cursor.fetchone()
+            return user is not None
+        
+
+async def change_password(user_id, now_password, new_password, again_enter_password):
+    async with aiosqlite.connect(DATABASE) as db:
+        # Hozirgi parolni tekshirish
+        async with db.execute("SELECT card_pin FROM cards WHERE user_id = ?", (user_id,)) as cursor:
+            user = await cursor.fetchone()
+            if user is not None:
+                if new_password == again_enter_password:
+                    await db.execute("UPDATE cards SET card_pin = ? WHERE user_id = ?", (new_password, user_id))
+                    await db.commit()
+                    return "Parol muvaffaqiyatli yangilandi!"
+                else: 
+                    return "Kiritilgan parollar mos kelmadi."
+            else:
+                return "Eski parol noto‘g‘ri kiritildi."
+
+        # Yangi parolni ikki marta kiritishni tekshirish
+        
