@@ -321,3 +321,33 @@ async def amount(msg: Message, state: FSMContext):
     except ValueError:
         await msg.answer("Iltimos, faqat son kiriting.")
     await state.clear()
+
+# ----------------------------------------------- Hamyonni tekshirish ---------------------------------------------
+
+@router_user.callback_query(F.data == 'hamyontekshirish')
+async def hamyonni_tekshirish(callback: CallbackQuery):
+    await callback.message.delete()
+
+    cards = await get_cards(callback.from_user.id)
+    for card in cards:
+        balance = card[4]
+
+    await callback.message.answer(f"Sizning hamyoningizga {balance} so'm bor!", reply_markup=payorget)
+
+@router_user.callback_query(F.data == 'hamyontoldirish')
+async def hamyontoldirish(callback: CallbackQuery):
+    await callback.message.delete()
+    await callback.message.answer("Hamyonni to'ldirish ustida hali ishalanayotganligi sababli, faqat sizga pul o'tkazishligi bilan o'z hamyoningizni to'ldirishgiz mumkin!\n\nKamchiliklar uchun uzur so'raymiz!", reply_markup=ortgaqaytish)
+
+@router_user.callback_query(F.data == 'pulyechibolish')
+async def pulyechibolish(callback: CallbackQuery):
+    await callback.message.delete()
+    await callback.message.answer("Pul yechib olishning hozircha imkoni yo'q, ammo, to'lov qilsangiz bo'ladi!\n\nKamchiliklar uchun uzur so'raymiz!", reply_markup=ortgaqaytish)
+
+
+# ------------------------------------------------------- Ortga qaytish -------------------------------------------------------
+
+@router_user.callback_query(F.data == 'ortgaqaytish')
+async def ortgaqaytish_handler(callback: CallbackQuery):
+    await callback.message.delete()
+    await callback.message.answer("Asosiy menyuga qaytdingiz!", reply_markup=menu_users)
