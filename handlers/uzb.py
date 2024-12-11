@@ -1,6 +1,5 @@
 from aiogram import F
 from aiogram.types import Message, CallbackQuery, FSInputFile
-from aiogram.filters import Command
 from loader import router_user
 from keyboards.inline.main import *
 from keyboards.default.main import *
@@ -35,7 +34,7 @@ class ExchangeCurrency(StatesGroup):
 sent_bonus_users = set()
 
 async def currency_conversion(from_currency, to_currency, amount):
-    url = "https://api.exchangerate-api.com/v4/latest/USD"  # To'g'ri API URL ni kiriting
+    url = "https://api.exchangerate-api.com/v4/latest/USD"  
     async with httpx.AsyncClient() as client:
         response = await client.get(url)
         rates = response.json().get("rates", {})
