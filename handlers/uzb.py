@@ -6,7 +6,7 @@ from keyboards.inline.main import *
 from keyboards.default.main import *
 from aiogram.fsm.context import FSMContext
 from aiogram.fsm.state import State, StatesGroup
-from database.userdb import create_user, create_card, get_user, user_exists, change_password
+from database.userdb import create_user, create_card, get_user, user_exists, change_password, get_cards
 from random import *
 from PIL import Image, ImageDraw, ImageFont
 
@@ -50,6 +50,28 @@ def edit_card_image(carta_path, output_path, card_number, name, expiry_date):
     # O'zgartirilgan rasmni saqlash
     img.save(output_path)
 
+def edit_card_image_information(carta_path, output_path, card_number, expiry_date):
+    # Rasmni yuklash
+    img = Image.open(carta_path)
+
+    # Rasmga chizish uchun ob'ekt
+    draw = ImageDraw.Draw(img)
+
+    font_path = "card/firecode.ttf"
+    # Shriftni yuklash
+    try:
+        font_num = ImageFont.truetype(font_path, 50)  # Windows tizimida ishlaydi
+        font_date = ImageFont.truetype(font_path, 30)  
+        font_name = ImageFont.truetype(font_path, 40)  
+    except IOError:
+        font = ImageFont.load_default()  # Agar shrift yo'q bo'lsa, tizimning default shriftini yuklaydi
+
+    # Matnlarni joylashtirish
+    draw.text((300, 450), card_number, fill="white", font=font_num)  # Karta raqami
+    draw.text((500, 530), expiry_date, fill="white", font=font_date)  # Amal qilish muddati
+
+    # O'zgartirilgan rasmni saqlash
+    img.save(output_path)
 
 @router_user.callback_query(F.data == "uz")
 async def start_uz(callback: CallbackQuery, state: FSMContext):
@@ -148,6 +170,7 @@ async def age(msg: Message, state: FSMContext):
         parse_mode="HTML"
     )
     await msg.answer("Iltimos qayta /start buyrug'ini bering!")
+    await state.clear()
 
 # ------------------------------------------ Password O'zgaritirish ------------------------------------
 
@@ -183,3 +206,23 @@ async def again_password(msg: Message, state: FSMContext):
     else:
         await msg.answer("Nimadur xato ketdi")
 
+# ---------------------------------------- Karta ma'lumotlarini olish ----------------------------------------------------------------
+
+@router_user.callback_query(F.data =="kartamalumotlariolish")
+async def ma_lumotlarni_olish(callback: CallbackQuery, state: FSMContext):
+    await callback.message.delete()
+    cards = await get_cards(callback.from_user.id)
+    for card in cards:
+        card_number = card[2]
+        card_password = card[3]
+        balance = card[4]
+
+        expirydate = '01/25'
+        card_number_formatted = f"{str(card_number)[:4]} {str(card_number)[4:8]} {str(card_number)[8:12]} {str(card_number)[12:]}"
+        input_image_path = 'card/card.png'
+        output_image_path = 'card/card_information.png'
+        edit_card_image_information(input_image_path, output_image_path, card_number_formatted, expirydate)
+
+        await callback.message.answer_photo(
+            photo=FSInputFile(output_image_path),
+            caption=f"Your card number is {card_number}\nYour card password is {card_password}\nYour card balance is {balance}")    

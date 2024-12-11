@@ -85,6 +85,11 @@ async def get_user(chat_id):
             user = await cursor.fetchone()
             return user is not None
 
+async def get_cards(chat_id):
+    async with aiosqlite.connect(DATABASE) as db:
+        async with db.execute("SELECT * FROM cards WHERE user_id =?", (chat_id,)) as cursor:
+            cards = await cursor.fetchall()
+            return cards
 
 async def create_card(user_id, card_number, card_pin, balance=0.00):
     async with aiosqlite.connect(DATABASE) as db:
