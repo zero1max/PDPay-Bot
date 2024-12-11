@@ -82,8 +82,8 @@ async def create_user(chat_id, name, surname, age, number):
 async def get_user(chat_id):
     async with aiosqlite.connect(DATABASE) as db:
         async with db.execute("SELECT * FROM users WHERE chat_id = ?", (chat_id,)) as cursor:
-            user = await cursor.fetchone()
-            return user is not None
+            user = await cursor.fetchall()
+            return user 
 
 async def get_cards(chat_id):
     async with aiosqlite.connect(DATABASE) as db:
@@ -101,10 +101,14 @@ async def create_card(user_id, card_number, card_pin, balance=0.00):
 
 async def user_exists(chat_id):
     async with aiosqlite.connect(DATABASE) as db:
-        async with db.execute("SELECT * FROM users WHERE chat_id = ?", (chat_id,)) as cursor:
-            user = await cursor.fetchone()
-            return user is not None
+        async with db.execute("SELECT * FROM users WHERE chat_id = ?", (chat_id,)) as check_user:
+            user = await check_user.fetchone()
+        async with db.execute("SELECT * FROM cards WHERE user_id = ?", (chat_id,)) as check_card:
+            card = await check_card.fetchone()
         
+        # Foydalanuvchi va karta mavjudligini tekshirish
+        return user is not None and card is not None
+
 
 async def change_password(user_id, now_password, new_password, again_enter_password):
     async with aiosqlite.connect(DATABASE) as db:

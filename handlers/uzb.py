@@ -9,10 +9,12 @@ from aiogram.fsm.state import State, StatesGroup
 from database.userdb import create_user, create_card, get_user, user_exists, change_password, get_cards
 from random import *
 from PIL import Image, ImageDraw, ImageFont
+import httpx, os
+
+url = 'http://api.exchangeratesapi.io/v1/latest?access_key=2e9fd14872e68750f79aac70efb70d2c'
 
 class UserAge(StatesGroup):
     user_age = State()
-
 
 class UserInformations(StatesGroup):
     number = State()
@@ -25,6 +27,27 @@ class NewPassword(StatesGroup):
     new_password = State()
     again_enter = State()
 
+class ExchangeCurrency(StatesGroup):
+    from_currency = State()
+    to_currency = State()
+    amount = State()
+
+sent_bonus_users = set()
+
+async def currency_conversion(from_currency, to_currency, amount):
+    url = "https://api.exchangerate-api.com/v4/latest/USD"  # To'g'ri API URL ni kiriting
+    async with httpx.AsyncClient() as client:
+        response = await client.get(url)
+        rates = response.json().get("rates", {})
+        
+        if from_currency not in rates or to_currency not in rates:
+            return None
+        
+        rate_from = rates[from_currency]
+        rate_to = rates[to_currency]
+        amount_in_usd = amount / rate_from
+        converted_amount = amount_in_usd * rate_to
+        return round(converted_amount, 2)
 
 def edit_card_image(carta_path, output_path, card_number, name, expiry_date):
     # Rasmni yuklash
@@ -101,6 +124,11 @@ async def user_age(msg: Message, state: FSMContext):
 
     await state.clear()
 
+@router_user.callback_query(F.data == 'kartayoq')
+async def create_card_yoq(callback: CallbackQuery):
+    await callback.message.answer("Karta yaratmasdan bizning botdan foydalana olmaysiz!")
+    await callback.message.answer("Karta yaratamizmi?", reply_markup=choice_create_card)
+
 @router_user.callback_query(F.data =='kartaha')
 async def create_card_ha(callback: CallbackQuery, state: FSMContext):
     await callback.message.delete()
@@ -155,19 +183,17 @@ async def age(msg: Message, state: FSMContext):
 
     # Karta tasvirini yaratish
     input_image_path = 'card/card.png'
-    output_image_path = 'card/output_card.png'
+    output_image_path = f'card/{name.lower()}_card.png'
     edit_card_image(input_image_path, output_image_path, card_number_formatted, name, expirydate)
 
     # Kartani bazaga qo'shish (agar mavjud funksiya bo'lsa)
-    await create_card(user_id, card_number, card_pin)
+    await create_card(user_id, card_number, card_pin, balance=10000)
 
     # Foydalanuvchiga karta ma'lumotlarini yuborish
     await msg.answer_photo(
         photo=FSInputFile(output_image_path),
         caption=f"Your card number is <b>{card_number_formatted[:9]}******{card_number_formatted[-4:]}</b>\n"
                 f"Your card PIN is <b>{card_pin}</b>\n\n"
-                "Ogohlantiramiz bu ma'lumotlarni hech kimga oshkor qilmang!",
-        parse_mode="HTML"
     )
     await msg.answer("Iltimos qayta /start buyrug'ini bering!")
     await state.clear()
@@ -183,7 +209,7 @@ async def parolalmashtirish(callback: CallbackQuery, state: FSMContext):
 @router_user.message(NewPassword.now_password)
 async def now_password(msg: Message, state: FSMContext):
     await state.update_data(now_password=msg.text)
-    await msg.answer("yangi Parolni yuboring!")
+    await msg.answer("Yangi Parolni yuboring!")
     await state.set_state(NewPassword.new_password)
 
 @router_user.message(NewPassword.new_password)
@@ -207,22 +233,91 @@ async def again_password(msg: Message, state: FSMContext):
         await msg.answer("Nimadur xato ketdi")
 
 # ---------------------------------------- Karta ma'lumotlarini olish ----------------------------------------------------------------
-
-@router_user.callback_query(F.data =="kartamalumotlariolish")
+@router_user.callback_query(F.data == "kartamalumotlariolish")
 async def ma_lumotlarni_olish(callback: CallbackQuery, state: FSMContext):
     await callback.message.delete()
+
+    # Foydalanuvchining kartalarini olish
     cards = await get_cards(callback.from_user.id)
     for card in cards:
         card_number = card[2]
         card_password = card[3]
         balance = card[4]
 
+        # Amal qilish muddati va formatlash
         expirydate = '01/25'
         card_number_formatted = f"{str(card_number)[:4]} {str(card_number)[4:8]} {str(card_number)[8:12]} {str(card_number)[12:]}"
-        input_image_path = 'card/card.png'
-        output_image_path = 'card/card_information.png'
-        edit_card_image_information(input_image_path, output_image_path, card_number_formatted, expirydate)
+        
+        # Foydalanuvchi ismi asosida rasm faylini aniqlash
+        user_id = card[1]  # Ma'lumotlar bazasidan foydalanuvchi ismi
+        user = await get_user(user_id)
+        username = user[0][2]
+        output_image_path = f'card/{username.lower()}_card.png'
 
-        await callback.message.answer_photo(
-            photo=FSInputFile(output_image_path),
-            caption=f"Your card number is {card_number}\nYour card password is {card_password}\nYour card balance is {balance}")    
+        gift_money_photo = "https://thumbs.dreamstime.com/b/uzbekistan-money-som-banknotes-uzs-uzbek-bills-d-illustration-money-uzbekistan-som-bills-uzs-banknotes-uzbek-business-finance-237100171.jpg"
+
+        # Agar fayl mavjud bo'lsa, uni yuborish
+        if os.path.exists(output_image_path):
+            if user_id in sent_bonus_users:
+                await callback.message.answer_photo(
+                    photo=FSInputFile(output_image_path),
+                    caption=(
+                    f"Your card number is <b>{card_number_formatted}</b>\n"
+                    f"Your card password is <b>{card_password}</b>\n"
+                    f"Your card balance is <b>{balance}</b>"
+                ))
+            else:
+                await callback.message.answer_photo(photo=gift_money_photo,
+                                                caption="Bizning hizmatdan foydalanayotganligingiz uchun sizga bonus sifatida 10000 so'm berildi!\n\nTabriklaymiz🥳")
+                await callback.message.answer_photo(
+                    photo=FSInputFile(output_image_path),
+                    caption=(
+                        f"Your card number is <b>{card_number_formatted}</b>\n"
+                        f"Your card password is <b>{card_password}</b>\n"
+                        f"Your card balance is <b>{balance}</b>"
+                    ))
+                sent_bonus_users.add(user_id)
+        else:
+            # Agar fayl mavjud bo'lmasa, foydalanuvchiga xabar berish
+            await callback.message.answer(
+                "Karta ma'lumotlari mavjud emas. Iltimos, kartani qayta yaratib ko'ring!"
+            )
+
+
+# ---------------------------------------- Exchange currency --------------------------------------------------------
+
+@router_user.callback_query(F.data == 'valyutakursi')
+async def exchange_currency(callback: CallbackQuery, state: FSMContext):
+    await callback.message.delete()
+    await callback.message.answer("Qaysi valyutani ayirboshlamoqchisiz? (Masalan: USD, EUR, UZS):")
+    await state.set_state(ExchangeCurrency.from_currency)
+
+@router_user.message(ExchangeCurrency.from_currency)
+async def from_currency(msg: Message, state: FSMContext):
+    await state.update_data(from_currency=msg.text.upper())
+    await msg.answer("Qaysi valyutaga o'zgartirmoqchisiz? (Masalan: USD, EUR, UZS):")
+    await state.set_state(ExchangeCurrency.to_currency)
+
+@router_user.message(ExchangeCurrency.to_currency)
+async def to_currency(msg: Message, state: FSMContext):
+    await state.update_data(to_currency=msg.text.upper())
+    await msg.answer("Summani kiriting (faqat son):")
+    await state.set_state(ExchangeCurrency.amount)
+
+@router_user.message(ExchangeCurrency.amount)
+async def amount(msg: Message, state: FSMContext):
+    try:
+        amount = float(msg.text)
+        await state.update_data(amount=amount)
+        data = await state.get_data()
+        from_currency = data['from_currency']
+        to_currency = data['to_currency']
+
+        result = await currency_conversion(from_currency, to_currency, amount)
+        if result is None:
+            await msg.answer("Kiritilgan valyutalar noto'g'ri. Iltimos, qayta urinib ko'ring.")
+        else:
+            await msg.answer(f"Valyutadan: {from_currency}\nValyutaga: {to_currency}\nNatija: {result}")
+    except ValueError:
+        await msg.answer("Iltimos, faqat son kiriting.")
+    await state.clear()
