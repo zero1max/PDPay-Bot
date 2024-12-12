@@ -31,6 +31,11 @@ class ExchangeCurrency(StatesGroup):
     to_currency = State()
     amount = State()
 
+class PulOtkazish(StatesGroup):
+    kimga = State()
+    summa = State()
+    izoh = State()
+
 sent_bonus_users = set()
 
 async def currency_conversion(from_currency, to_currency, amount):
@@ -226,7 +231,7 @@ async def again_password(msg: Message, state: FSMContext):
     again_password = data['again_password']
     check = await change_password(msg.from_user.id, now_password, new_password, again_password)
     if check:
-        await msg.answer("Parolingiz o'zgartirildi!", reply_markup=menu_users)
+        await msg.answer("Parolingiz o'zgartirildi!", reply_markup=ortgaqaytish)
         await state.clear()
     else:
         await msg.answer("Nimadur xato ketdi")
@@ -264,7 +269,7 @@ async def ma_lumotlarni_olish(callback: CallbackQuery, state: FSMContext):
                     f"Your card number is <b>{card_number_formatted}</b>\n"
                     f"Your card password is <b>{card_password}</b>\n"
                     f"Your card balance is <b>{balance}</b>"
-                ))
+                ), reply_markup=ortgaqaytish)
             else:
                 await callback.message.answer_photo(photo=gift_money_photo,
                                                 caption="Bizning hizmatdan foydalanayotganligingiz uchun sizga bonus sifatida 10000 so'm berildi!\n\nTabriklaymiz🥳")
@@ -274,7 +279,7 @@ async def ma_lumotlarni_olish(callback: CallbackQuery, state: FSMContext):
                         f"Your card number is <b>{card_number_formatted}</b>\n"
                         f"Your card password is <b>{card_password}</b>\n"
                         f"Your card balance is <b>{balance}</b>"
-                    ))
+                    ), reply_markup=ortgaqaytish)
                 sent_bonus_users.add(user_id)
         else:
             # Agar fayl mavjud bo'lmasa, foydalanuvchiga xabar berish
@@ -316,7 +321,7 @@ async def amount(msg: Message, state: FSMContext):
         if result is None:
             await msg.answer("Kiritilgan valyutalar noto'g'ri. Iltimos, qayta urinib ko'ring.")
         else:
-            await msg.answer(f"Valyutadan: {from_currency}\nValyutaga: {to_currency}\nNatija: {result}")
+            await msg.answer(f"Valyutadan: {from_currency}\nValyutaga: {to_currency}\nNatija: {result}", reply_markup=ortgaqaytish)
     except ValueError:
         await msg.answer("Iltimos, faqat son kiriting.")
     await state.clear()
@@ -342,6 +347,59 @@ async def hamyontoldirish(callback: CallbackQuery):
 async def pulyechibolish(callback: CallbackQuery):
     await callback.message.delete()
     await callback.message.answer("Pul yechib olishning hozircha imkoni yo'q, ammo, to'lov qilsangiz bo'ladi!\n\nKamchiliklar uchun uzur so'raymiz!", reply_markup=ortgaqaytish)
+
+# ------------------------------------------------ Pul o'tkazish --------------------------------------------------------------
+
+@router_user.callback_query(F.data == 'pulotkazish')
+async def pulotkazish(callback: CallbackQuery, state: FSMContext):
+    await callback.message.delete()
+    await callback.message.answer("Pul o'tkazmoqchi bo'lgan insoningizning karta raqamini yuboring:\n\nFor example: 4470 0000 0000 0000")
+    await state.set_state(PulOtkazish.kimga)
+
+@router_user.message(PulOtkazish.kimga)
+async def get_kimga(msg: Message, state: FSMContext):
+    await state.update_data(kimga=msg.text)
+    await msg.answer("Pulingizni kiriting (faqat son):")
+    await state.set_state(PulOtkazish.summa)
+
+@router_user.message(PulOtkazish.summa)
+async def get_summa(msg: Message, state: FSMContext):
+    await state.update_data(summa=msg.text)
+    await msg.answer("Izoh kiritasizmi?", reply_markup=izohyes_no)
+
+@router_user.callback_query(F.data == 'izohno')
+async def no_izoh(callback: CallbackQuery, state: FSMContext):
+    await callback.message.delete()
+    await state.update_data(izoh="None")
+    data = await state.get_data()
+    print(data)
+    kimga = data['kimga']
+    summa = data['summa']
+    izoh = data['izoh']
+    kim = await get_cards(callback.from_user.id)
+    yuboruvchi_balance = kim[0][5]
+    print(yuboruvchi_balance)
+    await callback.message.answer(
+        f"Sizning pulingiz {summa} so'mga o'tkazildi.\n\nKimga: {kimga}\nIzoh: {izoh}",
+        reply_markup=ortgaqaytish
+    )
+
+@router_user.callback_query(F.data == 'izohyes')
+async def yes_izoh(callback: CallbackQuery, state: FSMContext):
+    await callback.message.delete()
+    await callback.message.answer("Izohni yuboring: ")
+    await state.set_state(PulOtkazish.izoh)
+
+@router_user.message(PulOtkazish.izoh)
+async def get_izoh(msg: Message, state: FSMContext):
+    await state.update_data(izoh=msg.text)
+    data = await state.get_data()
+    kimga = data['kimga']
+    summa = data['summa']
+    izoh = data['izoh']
+
+    print(data)
+
 
 
 # ------------------------------------------------------- Ortga qaytish -------------------------------------------------------
