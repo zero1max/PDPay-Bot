@@ -5,7 +5,7 @@ from keyboards.inline.main import *
 from keyboards.default.main import *
 from aiogram.fsm.context import FSMContext
 from aiogram.fsm.state import State, StatesGroup
-from database.userdb import create_user, create_card, get_user, user_exists, change_password, get_cards
+from database.userdb import create_user, create_card, get_user, user_exists, change_password, get_cards, update_balance
 from random import *
 from PIL import Image, ImageDraw, ImageFont
 import httpx, os
@@ -372,17 +372,42 @@ async def no_izoh(callback: CallbackQuery, state: FSMContext):
     await callback.message.delete()
     await state.update_data(izoh="None")
     data = await state.get_data()
-    print(data)
+
     kimga = data['kimga']
-    summa = data['summa']
+    summa = int(data['summa'])
     izoh = data['izoh']
-    kim = await get_cards(callback.from_user.id)
-    yuboruvchi_balance = kim[0][5]
-    print(yuboruvchi_balance)
+    print(kimga)
+
+    # Foydalanuvchining kartalarini olish
+    yuboruvchi = await get_cards(callback.from_user.id)
+    if not yuboruvchi:
+        await callback.message.answer("Karta topilmadi.", reply_markup=ortgaqaytish)
+        return
+
+    yuboruvchi_balance = yuboruvchi[0][4]  # card[4] is balance
+
+    # Yuboruvchi balansini tekshirish va yangilash
+    if yuboruvchi_balance < summa:
+        await callback.message.answer("Balansingizda yetarli mablag' yo'q.", reply_markup=ortgaqaytish)
+        return
+
+    post_yuboruvchi_balance = yuboruvchi_balance - summa
+    await update_balance(callback.from_user.id, post_yuboruvchi_balance)
+
+    # Qabul qiluvchining kartasini olish va yangilash
+    qabul_qiluvchi = await get_cards(kimga)
+    if not qabul_qiluvchi:
+        await callback.message.answer("Qabul qiluvchining kartasi topilmadi.", reply_markup=ortgaqaytish)
+        return
+
+    qabul_qiluvchi_balance = qabul_qiluvchi[0][4]  # card[4] is balance
+    post_qabul_qiluvchi_balance = qabul_qiluvchi_balance + summa
+    await update_balance(kimga, post_qabul_qiluvchi_balance)
+
+    # Xabar yuborish
     await callback.message.answer(
         f"Sizning pulingiz {summa} so'mga o'tkazildi.\n\nKimga: {kimga}\nIzoh: {izoh}",
-        reply_markup=ortgaqaytish
-    )
+        reply_markup=ortgaqaytish)
 
 @router_user.callback_query(F.data == 'izohyes')
 async def yes_izoh(callback: CallbackQuery, state: FSMContext):
