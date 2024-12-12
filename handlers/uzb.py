@@ -103,7 +103,7 @@ async def start_uz(callback: CallbackQuery, state: FSMContext):
         await callback.message.answer("Yoshingizni kiriting!")
         await state.set_state(UserAge.user_age)
         await callback.message.delete()
-        await callback.answer()  # Callbackni yopish
+        await callback.answer()  
 
 # --------------------------------------- Create card ---------------------------------------------------------
 @router_user.message(UserAge.user_age)
@@ -158,32 +158,26 @@ async def age(msg: Message, state: FSMContext):
     await state.update_data(age=msg.text)
     data = await state.get_data()
 
-    # Foydalanuvchi ma'lumotlari
     name = data['name']
     surname = data['surname']
     age = data['age']
     number = data['number']
     user_id = msg.from_user.id
 
-    # Foydalanuvchini bazaga qo'shish (loyiha talabiga ko'ra funksiya chaqirildi)
     await create_user(user_id, name, surname, age, number)
     await msg.answer("Siz ro'yxatdan o'tdingiz!")
 
-    # Karta raqami va PIN kodini yaratish
     card_number = randint(4470000000000000, 4471000000000000)
     card_pin = randint(1000, 9999)
     card_number_formatted = f"{str(card_number)[:4]} {str(card_number)[4:8]} {str(card_number)[8:12]} {str(card_number)[12:]}"
     expirydate = "01/25"
 
-    # Karta tasvirini yaratish
     input_image_path = 'card/card.png'
     output_image_path = f'card/{name.lower()}_card.png'
     edit_card_image(input_image_path, output_image_path, card_number_formatted, name, expirydate)
 
-    # Kartani bazaga qo'shish (agar mavjud funksiya bo'lsa)
     await create_card(user_id, card_number, card_pin, balance=10000)
 
-    # Foydalanuvchiga karta ma'lumotlarini yuborish
     await msg.answer_photo(
         photo=FSInputFile(output_image_path),
         caption=f"Your card number is <b>{card_number_formatted[:9]}******{card_number_formatted[-4:]}</b>\n"
