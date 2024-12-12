@@ -54,50 +54,40 @@ async def currency_conversion(from_currency, to_currency, amount):
         return round(converted_amount, 2)
 
 def edit_card_image(carta_path, output_path, card_number, name, expiry_date):
-    # Rasmni yuklash
     img = Image.open(carta_path)
 
-    # Rasmga chizish uchun ob'ekt
     draw = ImageDraw.Draw(img)
 
     font_path = "card/firecode.ttf"
-    # Shriftni yuklash
     try:
-        font_num = ImageFont.truetype(font_path, 50)  # Windows tizimida ishlaydi
+        font_num = ImageFont.truetype(font_path, 50)  
         font_date = ImageFont.truetype(font_path, 30)  
         font_name = ImageFont.truetype(font_path, 40)  
     except IOError:
-        font = ImageFont.load_default()  # Agar shrift yo'q bo'lsa, tizimning default shriftini yuklaydi
+        font = ImageFont.load_default()  
 
-    # Matnlarni joylashtirish
-    draw.text((300, 450), card_number, fill="white", font=font_num)  # Karta raqami
-    draw.text((500, 530), expiry_date, fill="white", font=font_date)  # Amal qilish muddati
-    draw.text((200, 560), name, fill="white", font=font_name)         # Foydalanuvchi ismi
+    draw.text((300, 450), card_number, fill="white", font=font_num)  
+    draw.text((500, 530), expiry_date, fill="white", font=font_date)  
+    draw.text((200, 560), name, fill="white", font=font_name)         
 
-    # O'zgartirilgan rasmni saqlash
     img.save(output_path)
 
 def edit_card_image_information(carta_path, output_path, card_number, expiry_date):
-    # Rasmni yuklash
     img = Image.open(carta_path)
 
-    # Rasmga chizish uchun ob'ekt
     draw = ImageDraw.Draw(img)
 
     font_path = "card/firecode.ttf"
-    # Shriftni yuklash
     try:
-        font_num = ImageFont.truetype(font_path, 50)  # Windows tizimida ishlaydi
+        font_num = ImageFont.truetype(font_path, 50) 
         font_date = ImageFont.truetype(font_path, 30)  
         font_name = ImageFont.truetype(font_path, 40)  
     except IOError:
-        font = ImageFont.load_default()  # Agar shrift yo'q bo'lsa, tizimning default shriftini yuklaydi
+        font = ImageFont.load_default()  
 
-    # Matnlarni joylashtirish
-    draw.text((300, 450), card_number, fill="white", font=font_num)  # Karta raqami
-    draw.text((500, 530), expiry_date, fill="white", font=font_date)  # Amal qilish muddati
+    draw.text((300, 450), card_number, fill="white", font=font_num)  
+    draw.text((500, 530), expiry_date, fill="white", font=font_date)  
 
-    # O'zgartirilgan rasmni saqlash
     img.save(output_path)
 
 @router_user.callback_query(F.data == "uz")
