@@ -46,8 +46,9 @@ async def setup_database():
         await db.execute('''
             CREATE TABLE IF NOT EXISTS services (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,    -- Xizmat uchun unikal identifikator
-                name TEXT NOT NULL,                       -- Xizmat nomi
-                provider TEXT,                            -- Xizmat ko'rsatuvchi nomi
+                chat_id INTEGER NOT NULL,                -- Chat identifikatori
+                phone_number INTEGER NOT NULL,           -- Phone number
+                amount DECIMAL(15, 2) NOT NULL,          -- Amount
                 created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
             )
         ''')
