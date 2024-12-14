@@ -1,11 +1,12 @@
 from aiogram import F
 from aiogram.types import Message, CallbackQuery, FSInputFile
-from loader import router_user
+from loader import router_user, bot
 from keyboards.inline.main import *
 from keyboards.default.main import *
 from aiogram.fsm.context import FSMContext
 from aiogram.fsm.state import State, StatesGroup
-from database.userdb import create_user, create_card, get_user, user_exists, change_password, get_cards, update_balance
+from database.userdb import create_user, create_card, create_transaction ,get_user, user_exists, change_password, get_cards ,get_card_by_user, get_card_by_number, update_balance
+import time
 from random import *
 from PIL import Image, ImageDraw, ImageFont
 import httpx, os
@@ -225,26 +226,22 @@ async def again_password(msg: Message, state: FSMContext):
 async def ma_lumotlarni_olish(callback: CallbackQuery, state: FSMContext):
     await callback.message.delete()
 
-    # Foydalanuvchining kartalarini olish
     cards = await get_cards(callback.from_user.id)
     for card in cards:
         card_number = card[2]
         card_password = card[3]
         balance = card[4]
 
-        # Amal qilish muddati va formatlash
         expirydate = '01/25'
         card_number_formatted = f"{str(card_number)[:4]} {str(card_number)[4:8]} {str(card_number)[8:12]} {str(card_number)[12:]}"
         
-        # Foydalanuvchi ismi asosida rasm faylini aniqlash
-        user_id = card[1]  # Ma'lumotlar bazasidan foydalanuvchi ismi
+        user_id = card[1] 
         user = await get_user(user_id)
         username = user[0][2]
         output_image_path = f'card/{username.lower()}_card.png'
 
         gift_money_photo = "https://thumbs.dreamstime.com/b/uzbekistan-money-som-banknotes-uzs-uzbek-bills-d-illustration-money-uzbekistan-som-bills-uzs-banknotes-uzbek-business-finance-237100171.jpg"
 
-        # Agar fayl mavjud bo'lsa, uni yuborish
         if os.path.exists(output_image_path):
             if user_id in sent_bonus_users:
                 await callback.message.answer_photo(
@@ -266,7 +263,6 @@ async def ma_lumotlarni_olish(callback: CallbackQuery, state: FSMContext):
                     ), reply_markup=ortgaqaytish)
                 sent_bonus_users.add(user_id)
         else:
-            # Agar fayl mavjud bo'lmasa, foydalanuvchiga xabar berish
             await callback.message.answer(
                 "Karta ma'lumotlari mavjud emas. Iltimos, kartani qayta yaratib ko'ring!"
             )
@@ -360,38 +356,42 @@ async def no_izoh(callback: CallbackQuery, state: FSMContext):
     kimga = data['kimga']
     summa = int(data['summa'])
     izoh = data['izoh']
-    print(kimga)
 
-    # Foydalanuvchining kartalarini olish
-    yuboruvchi = await get_cards(callback.from_user.id)
+    yuboruvchi = await get_card_by_user(callback.from_user.id)
+    yuboruvchi_id = yuboruvchi[0]
+    yuboruvchi_number = yuboruvchi[2]
+    print(f"Yuboruvchi card number: {yuboruvchi_number}")
     if not yuboruvchi:
         await callback.message.answer("Karta topilmadi.", reply_markup=ortgaqaytish)
         return
 
-    yuboruvchi_balance = yuboruvchi[0][4]  # card[4] is balance
+    yuboruvchi_balance = yuboruvchi[4]  
 
-    # Yuboruvchi balansini tekshirish va yangilash
     if yuboruvchi_balance < summa:
         await callback.message.answer("Balansingizda yetarli mablag' yo'q.", reply_markup=ortgaqaytish)
         return
 
     post_yuboruvchi_balance = yuboruvchi_balance - summa
-    await update_balance(callback.from_user.id, post_yuboruvchi_balance)
+    await update_balance(yuboruvchi_id, post_yuboruvchi_balance)
 
-    # Qabul qiluvchining kartasini olish va yangilash
-    qabul_qiluvchi = await get_cards(kimga)
+    qabul_qiluvchi = await get_card_by_number(kimga)
+    qabul_qiluvchi_id = qabul_qiluvchi[0]
+    qabul_qiluvchi_chat_id = qabul_qiluvchi[1]
+    qabul_qiluvchi_number = qabul_qiluvchi[2]
     if not qabul_qiluvchi:
         await callback.message.answer("Qabul qiluvchining kartasi topilmadi.", reply_markup=ortgaqaytish)
         return
 
-    qabul_qiluvchi_balance = qabul_qiluvchi[0][4]  # card[4] is balance
+    qabul_qiluvchi_balance = qabul_qiluvchi[4]  
     post_qabul_qiluvchi_balance = qabul_qiluvchi_balance + summa
-    await update_balance(kimga, post_qabul_qiluvchi_balance)
+    await update_balance(qabul_qiluvchi_id, post_qabul_qiluvchi_balance)
+    await create_transaction(yuboruvchi_number, qabul_qiluvchi_number, summa, izoh)
 
-    # Xabar yuborish
     await callback.message.answer(
         f"Sizning pulingiz {summa} so'mga o'tkazildi.\n\nKimga: {kimga}\nIzoh: {izoh}",
         reply_markup=ortgaqaytish)
+    await bot.send_message(chat_id=qabul_qiluvchi_chat_id, text="Sizga pul o'tkazildi!")
+    await state.clear()
 
 @router_user.callback_query(F.data == 'izohyes')
 async def yes_izoh(callback: CallbackQuery, state: FSMContext):
@@ -403,12 +403,46 @@ async def yes_izoh(callback: CallbackQuery, state: FSMContext):
 async def get_izoh(msg: Message, state: FSMContext):
     await state.update_data(izoh=msg.text)
     data = await state.get_data()
+
     kimga = data['kimga']
-    summa = data['summa']
+    summa = int(data['summa'])
     izoh = data['izoh']
 
-    print(data)
+    yuboruvchi = await get_card_by_user(msg.from_user.id)
+    yuboruvchi_id = yuboruvchi[0]
+    yuboruvchi_number = yuboruvchi[2]
+    print(f"Yuboruvchi card number: {yuboruvchi_number}")
+    if not yuboruvchi:
+        await msg.answer("Karta topilmadi.", reply_markup=ortgaqaytish)
+        return
 
+    yuboruvchi_balance = yuboruvchi[4]  
+
+    if yuboruvchi_balance < summa:
+        await msg.answer("Balansingizda yetarli mablag' yo'q.", reply_markup=ortgaqaytish)
+        return
+
+    post_yuboruvchi_balance = yuboruvchi_balance - summa
+    await update_balance(yuboruvchi_id, post_yuboruvchi_balance)
+
+    qabul_qiluvchi = await get_card_by_number(kimga)
+    qabul_qiluvchi_id = qabul_qiluvchi[0]
+    qabul_qiluvchi_chat_id = qabul_qiluvchi[1]
+    qabul_qiluvchi_number = qabul_qiluvchi[2]
+    if not qabul_qiluvchi:
+        await msg.answer("Qabul qiluvchining kartasi topilmadi.", reply_markup=ortgaqaytish)
+        return
+
+    qabul_qiluvchi_balance = qabul_qiluvchi[4]  
+    post_qabul_qiluvchi_balance = qabul_qiluvchi_balance + summa
+    await update_balance(qabul_qiluvchi_id, post_qabul_qiluvchi_balance)
+    await create_transaction(yuboruvchi_number, qabul_qiluvchi_number, summa, izoh)
+
+    await msg.answer(
+        f"Sizning pulingiz {summa} so'mga o'tkazildi.\n\nKimga: {kimga}\nIzoh: {izoh}",
+        reply_markup=ortgaqaytish)
+    await bot.send_message(chat_id=qabul_qiluvchi_chat_id, text="Sizga pul o'tkazildi!")
+    await state.clear()
 
 
 # ------------------------------------------------------- Ortga qaytish -------------------------------------------------------
