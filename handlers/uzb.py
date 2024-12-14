@@ -37,6 +37,10 @@ class PulOtkazish(StatesGroup):
     summa = State()
     izoh = State()
 
+class Mobile(StatesGroup):
+    phone_number = State()
+    summa = State()
+
 sent_bonus_users = set()
 
 async def currency_conversion(from_currency, to_currency, amount):
@@ -444,6 +448,39 @@ async def get_izoh(msg: Message, state: FSMContext):
     await bot.send_message(chat_id=qabul_qiluvchi_chat_id, text="Sizga pul o'tkazildi!")
     await state.clear()
 
+# ------------------------------------------------------- To'lov qilish -------------------------------------------------------
+
+@router_user.callback_query(F.data == 'tolovqilish')
+async def tolovqilish(callback: CallbackQuery):
+    await callback.message.delete()
+    await callback.message.answer("Tanlang: ", reply_markup=menu_tolov_qilish)
+
+# ---------------------- Mobile -----------------------------
+@router_user.callback_query(F.data == 'mobile')
+async def mobile(callback: CallbackQuery, state: FSMContext):
+    await callback.message.delete()
+    await callback.message.answer("Telefon raqam yuboring!\n\nMisol uchun: <b>901234567</b>")
+    await state.set_state(Mobile.phone_number)
+
+@router_user.message(Mobile.phone_number)
+async def get_phone_number(msg: Message, state: FSMContext):
+    await state.update_data(phone_number=msg.text)
+    await msg.answer("Sizning telefon raqamingiz: <b>{}</b>".format(msg.text))
+    await state.set_state(Mobile.summa)
+    await msg.answer("Summa kiriting: ")
+    
+@router_user.message(Mobile.summa)
+async def get_summa(msg: Message, state: FSMContext):
+    await state.update_data(summa=int(msg.text))
+    data = await state.get_data()
+    print(data)
+
+
+# ---------------------- Komunal ----------------------------
+@router_user.callback_query(F.data == 'komunal')
+async def komunal(callback: CallbackQuery):
+    await callback.message.delete()
+    await callback.message.answer("Tanlang: ", reply_markup=menu_komunal)
 
 # ------------------------------------------------------- Ortga qaytish -------------------------------------------------------
 
