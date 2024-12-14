@@ -31,15 +31,17 @@ async def setup_database():
 
         await db.execute('''
             CREATE TABLE IF NOT EXISTS transactions (
-                id INTEGER PRIMARY KEY AUTOINCREMENT,    -- Transaksiya uchun unikal identifikator
-                card_id INTEGER NOT NULL,                 -- `cards` jadvaliga tashqi kalit
-                transaction_type TEXT NOT NULL,           -- Amal turi (deposit, withdrawal, payment)
-                amount DECIMAL(15, 2) NOT NULL,           -- Transaksiya summasi
-                description TEXT,                         -- To'lov izohi
-                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                FOREIGN KEY (card_id) REFERENCES cards(id)
+                id INTEGER PRIMARY KEY AUTOINCREMENT,      -- Transaksiya uchun unikal identifikator
+                sender_card_number INTEGER NOT NULL,           -- `cards` jadvaliga tashqi kalit
+                receiver_card_number INTEGER NOT NULL,         -- `cards` jadvaliga tashqi kalit
+                amount DECIMAL(15, 2) NOT NULL,            -- Transaksiya summasi
+                description TEXT,                          -- To'lov izohi
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP, -- Yaratilgan vaqt
+                FOREIGN KEY (sender_card_number) REFERENCES cards(card_number), -- Jo'natuvchi karta uchun bog'lash
+                FOREIGN KEY (receiver_card_number) REFERENCES cards(card_number) -- Qabul qiluvchi karta uchun bog'lash
             )
         ''')
+
 
         await db.execute('''
             CREATE TABLE IF NOT EXISTS services (
@@ -85,6 +87,18 @@ async def get_cards(chat_id):
             cards = await cursor.fetchall()
             return cards
 
+async def get_card_by_number(card_number):
+    async with aiosqlite.connect(DATABASE) as db:
+        async with db.execute("SELECT * FROM cards WHERE card_number = ?", (card_number,)) as cursor:
+            return await cursor.fetchone()
+
+
+async def get_card_by_user(chat_id):
+    async with aiosqlite.connect(DATABASE) as db:
+        async with db.execute("SELECT * FROM cards WHERE user_id = ?", (chat_id,)) as cursor:
+            return await cursor.fetchone()  # faqat bitta kartani qaytaradi
+
+
 async def create_card(user_id, card_number, card_pin, balance=0.00):
     async with aiosqlite.connect(DATABASE) as db:
         await db.execute("""INSERT INTO cards (user_id, card_number, card_pin, balance) VALUES (?, ?, ?, ?)""",
@@ -92,6 +106,14 @@ async def create_card(user_id, card_number, card_pin, balance=0.00):
         )
         await db.commit()
         print("Card created successfully!")
+
+async def create_transaction(sender_card_number, receiver_card_number, amount, description):
+    async with aiosqlite.connect(DATABASE) as db:
+        await db.execute('''INSERT INTO transactions (sender_card_number, receiver_card_number, amount, description) VALUES (?, ?, ?, ?)''', 
+            (sender_card_number, receiver_card_number, amount, description)
+        )
+        await db.commit()
+        print("Transaction completed successfully!")
 
 async def user_exists(chat_id):
     async with aiosqlite.connect(DATABASE) as db:
@@ -118,3 +140,8 @@ async def change_password(user_id, now_password, new_password, again_enter_passw
                 return "Eski parol noto‘g‘ri kiritildi."
         
 
+async def update_balance(card_id, new_balance):
+    async with aiosqlite.connect(DATABASE) as db:
+        await db.execute("UPDATE cards SET balance = ? WHERE id = ?", (new_balance, card_id))
+        await db.commit()
+        return "Balans muvaffaqiyatli yangilandi!"
