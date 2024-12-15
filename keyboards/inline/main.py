@@ -30,10 +30,34 @@ menu_users = InlineKeyboardMarkup(
     ]
 )
 
+menu_tolov_qilish = InlineKeyboardMarkup(
+    inline_keyboard=[
+        [InlineKeyboardButton(text="Mobil Operatorga to'lov qilish 📱", callback_data='mobile')],
+        [InlineKeyboardButton(text="Kommunal xizmatlarga to'lov qilish 💡", callback_data='komunal')],
+        [InlineKeyboardButton(text="Ortga qaytish🔙", callback_data='ortgaqaytish')]
+    ]
+)
+
+menu_komunal = InlineKeyboardMarkup(
+    inline_keyboard=[
+        [InlineKeyboardButton(text="⚡ Elektr toki", callback_data='elektr'), InlineKeyboardButton(text='🔥 Gaz', callback_data='gaz')],
+        [InlineKeyboardButton(text="🏫 Maktab", callback_data='school'), InlineKeyboardButton(text='💧 Issiq suv', callback_data="issiqsuv")],
+        [InlineKeyboardButton(text='🌐 Internet provayder', callback_data='internet'), InlineKeyboardButton(text='🗑️ Axlat', callback_data="axlat")],
+        [InlineKeyboardButton(text="Ortga qaytish🔙", callback_data='ortgaqaytish')]
+    ]
+)
+
 payorget = InlineKeyboardMarkup(
     inline_keyboard=[
-        [InlineKeyboardButton(text="Hamyonni to'ldirish", callback_data='hamyontoldirish')],
-        [InlineKeyboardButton(text="Pul yechib olish", callback_data='pulyechibolish')]
+        [InlineKeyboardButton(text="Hamyonni to'ldirish➕", callback_data='hamyontoldirish')],
+        [InlineKeyboardButton(text="Pul yechib olish➖", callback_data='pulyechibolish')]
+    ]
+)
+
+
+izohyes_no = InlineKeyboardMarkup(
+    inline_keyboard=[
+        [InlineKeyboardButton(text='Ha', callback_data='izohyes'), InlineKeyboardButton(text="Yo'q", callback_data='izohno')]
     ]
 )
 
