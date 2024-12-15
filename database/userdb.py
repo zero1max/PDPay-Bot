@@ -46,10 +46,21 @@ async def setup_database():
         await db.execute('''
             CREATE TABLE IF NOT EXISTS services (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,    -- Xizmat uchun unikal identifikator
-                chat_id INTEGER NOT NULL,                -- Chat identifikatori
-                phone_number INTEGER NOT NULL,           -- Phone number
-                amount DECIMAL(15, 2) NOT NULL,          -- Amount
-                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+                user_id INTEGER NOT NULL,                -- Foydalanuvchi identifikatori
+                receiver_phone_number TEXT NOT NULL,     -- Qabul qiluvchining telefon raqami
+                amount DECIMAL(15, 2) NOT NULL,          -- Miqdor
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP -- Yaratilgan sana
+            )
+        ''')
+
+        await db.execute('''
+            CREATE TABLE IF NOT EXISTS utilities (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,    -- Yozuv uchun unikal identifikator
+                user_id INTEGER NOT NULL,               -- Foydalanuvchi identifikatori
+                komunal_name TEXT NOT NULL,             -- Kommunal to'lov turi (masalan, "Elektr", "Gaz", "Suv")
+                account_number TEXT NOT NULL,           -- Komunal hisob raqami
+                summa DECIMAL(15, 2) NOT NULL,          -- To'lov summasi
+                created_date TIMESTAMP DEFAULT CURRENT_TIMESTAMP -- Yaratilgan sana
             )
         ''')
 
@@ -82,11 +93,13 @@ async def get_user(chat_id):
             user = await cursor.fetchall()
             return user 
 
+
 async def get_cards(chat_id):
     async with aiosqlite.connect(DATABASE) as db:
         async with db.execute("SELECT * FROM cards WHERE user_id =?", (chat_id,)) as cursor:
             cards = await cursor.fetchall()
             return cards
+
 
 async def get_card_by_number(card_number):
     async with aiosqlite.connect(DATABASE) as db:
@@ -98,6 +111,13 @@ async def get_card_by_user(chat_id):
     async with aiosqlite.connect(DATABASE) as db:
         async with db.execute("SELECT * FROM cards WHERE user_id = ?", (chat_id,)) as cursor:
             return await cursor.fetchone()  # faqat bitta kartani qaytaradi
+        
+
+async def get_user_by_phone_number(phone_number):
+    async with aiosqlite.connect(DATABASE) as db:
+        async with db.execute("SELECT * FROM users WHERE phone_number =?", (phone_number,)) as cursor:
+            user = await cursor.fetchall()
+            return user
 
 
 async def create_card(user_id, card_number, card_pin, balance=0.00):
@@ -108,6 +128,7 @@ async def create_card(user_id, card_number, card_pin, balance=0.00):
         await db.commit()
         print("Card created successfully!")
 
+
 async def create_transaction(sender_card_number, receiver_card_number, amount, description):
     async with aiosqlite.connect(DATABASE) as db:
         await db.execute('''INSERT INTO transactions (sender_card_number, receiver_card_number, amount, description) VALUES (?, ?, ?, ?)''', 
@@ -115,6 +136,24 @@ async def create_transaction(sender_card_number, receiver_card_number, amount, d
         )
         await db.commit()
         print("Transaction completed successfully!")
+
+
+async def create_services(user_id, receiver_phone_number, amount):
+    async with aiosqlite.connect(DATABASE) as db:
+        await db.execute("""INSERT INTO services (user_id, receiver_phone_number, amount) VALUES (?, ?, ?)""",
+            (user_id, receiver_phone_number, amount)
+        )
+        await db.commit()
+        print("Service created successfully!")
+
+
+async def create_utilities(user_id, komunal_name, account_number, amount):
+    async with aiosqlite.connect(DATABASE) as db:
+        await db.execute("""INSERT INTO utilities (user_id, komunal_name, account_number, summa) VALUES (?, ?, ?, ?)""",
+            (user_id, komunal_name, account_number, amount)
+        )
+        await db.commit()
+        print("Utility created successfully!")
 
 async def user_exists(chat_id):
     async with aiosqlite.connect(DATABASE) as db:
