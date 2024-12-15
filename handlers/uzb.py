@@ -44,6 +44,7 @@ class Mobile(StatesGroup):
 
 class Komunals(StatesGroup):
     komunal_name = State()
+    account_number = State()
     summa = State()
 
 sent_bonus_users = set()
@@ -511,9 +512,34 @@ async def all_komunals(callback: CallbackQuery, state: FSMContext):
     await callback.message.delete()
     await state.update_data(komunal_name=callback.data)
     await callback.message.answer(f"{(callback.data).capitalize()} hisob raqamingizni yuboring!")
+    await state.set_state(Komunals.account_number)
+
+@router_user.message(Komunals.account_number)
+async def get_account_number(msg: Message, state: FSMContext):
+    await state.update_data(account_number=msg.text)
+    await msg.answer("Sizning hisob raqamingiz: <b>{}</b>".format(msg.text))
     await state.set_state(Komunals.summa)
+    await msg.answer("Summa kiriting: ")
 
+@router_user.message(Komunals.summa)
+async def get_summa(msg: Message, state: FSMContext):
+    await state.update_data(summa=int(msg.text))
+    await state.update_data(user_id = msg.from_user.id)
+    data = await state.get_data()
+    userid = data['user_id']
+    komunal_name = data['komunal_name']
+    account_number = data['account_number']
+    summa = data['summa']
 
+    yuboruvchi = await get_card_by_user(msg.from_user.id)
+    yuboruvchi_id = yuboruvchi[0]
+    yuboruvchi_balance = yuboruvchi[4]  
+
+    post_yuboruvchi_balance = yuboruvchi_balance - summa
+    await update_balance(yuboruvchi_id, post_yuboruvchi_balance)
+
+    await create_utilities(userid, komunal_name, account_number, summa)
+    await msg.answer("To'lov muvaffaqiyatli amalga oshirildi!", reply_markup=ortgaqaytish)
 
 # ------------------------------------------------------- Ortga qaytish -------------------------------------------------------
 
