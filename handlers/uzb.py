@@ -5,7 +5,7 @@ from keyboards.inline.main import *
 from keyboards.default.main import *
 from aiogram.fsm.context import FSMContext
 from aiogram.fsm.state import State, StatesGroup
-from database.userdb import create_user, create_card, create_transaction ,get_user, user_exists, change_password, get_cards ,get_card_by_user, get_card_by_number, update_balance
+from database.userdb import create_user, create_card, create_transaction, create_services, create_utilities, get_user, user_exists, change_password, get_cards ,get_card_by_user, get_card_by_number, update_balance, get_user_by_phone_number
 import time
 from random import *
 from PIL import Image, ImageDraw, ImageFont
@@ -38,7 +38,12 @@ class PulOtkazish(StatesGroup):
     izoh = State()
 
 class Mobile(StatesGroup):
+    user_id  = State()
     phone_number = State()
+    summa = State()
+
+class Komunals(StatesGroup):
+    komunal_name = State()
     summa = State()
 
 sent_bonus_users = set()
@@ -464,7 +469,7 @@ async def mobile(callback: CallbackQuery, state: FSMContext):
 
 @router_user.message(Mobile.phone_number)
 async def get_phone_number(msg: Message, state: FSMContext):
-    await state.update_data(phone_number=msg.text)
+    await state.update_data(phone_number=f'+998{msg.text}')
     await msg.answer("Sizning telefon raqamingiz: <b>{}</b>".format(msg.text))
     await state.set_state(Mobile.summa)
     await msg.answer("Summa kiriting: ")
@@ -472,15 +477,43 @@ async def get_phone_number(msg: Message, state: FSMContext):
 @router_user.message(Mobile.summa)
 async def get_summa(msg: Message, state: FSMContext):
     await state.update_data(summa=int(msg.text))
+    await state.update_data(user_id = msg.from_user.id)
     data = await state.get_data()
-    print(data)
+    userid = data['user_id']
+    receiver_phone_num = data['phone_number']
+    summa = data['summa']
 
+    receiver = await get_user_by_phone_number(receiver_phone_num)
+    receiver_user_id = receiver[0][1]
+    print(receiver)
+
+    yuboruvchi = await get_card_by_user(msg.from_user.id)
+    yuboruvchi_id = yuboruvchi[0]
+    yuboruvchi_balance = yuboruvchi[4]  
+
+    post_yuboruvchi_balance = yuboruvchi_balance - summa
+    await update_balance(yuboruvchi_id, post_yuboruvchi_balance)
+
+    await create_services(userid, receiver_phone_num, summa)
+    await msg.answer("Pul o'tkazildi!", reply_markup=ortgaqaytish)
+    await bot.send_message(chat_id=receiver_user_id, text=f"Sizning telefon raqamingizga {summa} so'm pul o'tkazildi!")
+    await state.clear()
 
 # ---------------------- Komunal ----------------------------
 @router_user.callback_query(F.data == 'komunal')
-async def komunal(callback: CallbackQuery):
+async def komunal(callback: CallbackQuery, state: FSMContext):
     await callback.message.delete()
     await callback.message.answer("Tanlang: ", reply_markup=menu_komunal)
+    await state.set_state(Komunals.komunal_name)
+
+@router_user.callback_query(F.data.in_({'elektr', 'gaz', 'school', 'issiqsuv', 'internet', 'axlat'}), Komunals.komunal_name)
+async def all_komunals(callback: CallbackQuery, state: FSMContext):
+    await callback.message.delete()
+    await state.update_data(komunal_name=callback.data)
+    await callback.message.answer(f"{(callback.data).capitalize()} hisob raqamingizni yuboring!")
+    await state.set_state(Komunals.summa)
+
+
 
 # ------------------------------------------------------- Ortga qaytish -------------------------------------------------------
 
