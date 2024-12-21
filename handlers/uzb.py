@@ -191,11 +191,12 @@ async def age(msg: Message, state: FSMContext):
 
     await msg.answer_photo(
         photo=FSInputFile(output_image_path),
-        caption=f"Your card number is <b>{card_number_formatted[:9]}******{card_number_formatted[-4:]}</b>\n"
-                f"Your card PIN is <b>{card_pin}</b>\n\n"
+        caption=f"Sizning karta raqamingiz <b>{card_number_formatted[:9]}******{card_number_formatted[-4:]}</b>\n"
+                f"Sizning karta parolingiz <b>{card_pin}</b>\n\n"
     )
     await msg.answer("Iltimos qayta /start buyrug'ini bering!")
     await state.clear()
+
 
 # ------------------------------------------ Password O'zgaritirish ------------------------------------
 
@@ -484,21 +485,36 @@ async def get_summa(msg: Message, state: FSMContext):
     receiver_phone_num = data['phone_number']
     summa = data['summa']
 
-    receiver = await get_user_by_phone_number(receiver_phone_num)
-    receiver_user_id = receiver[0][1]
-    print(receiver)
+    try:
+        receiver = await get_user_by_phone_number(receiver_phone_num)
+        receiver_user_id = receiver[0][1]
+        print(receiver)
 
-    yuboruvchi = await get_card_by_user(msg.from_user.id)
-    yuboruvchi_id = yuboruvchi[0]
-    yuboruvchi_balance = yuboruvchi[4]  
+        yuboruvchi = await get_card_by_user(msg.from_user.id)
+        yuboruvchi_id = yuboruvchi[0]
+        yuboruvchi_balance = yuboruvchi[4]  
 
-    post_yuboruvchi_balance = yuboruvchi_balance - summa
-    await update_balance(yuboruvchi_id, post_yuboruvchi_balance)
+        post_yuboruvchi_balance = yuboruvchi_balance - summa
+        await update_balance(yuboruvchi_id, post_yuboruvchi_balance)
 
-    await create_services(userid, receiver_phone_num, summa)
-    await msg.answer("Pul o'tkazildi!", reply_markup=ortgaqaytish)
-    await bot.send_message(chat_id=receiver_user_id, text=f"Sizning telefon raqamingizga {summa} so'm pul o'tkazildi!")
-    await state.clear()
+        await create_services(userid, receiver_phone_num, summa)
+        await msg.answer("Pul o'tkazildi!", reply_markup=ortgaqaytish)
+        await bot.send_message(chat_id=receiver_user_id, text=f"Sizning telefon raqamingizga {summa} so'm pul o'tkazildi!")
+        await state.clear()
+    except Exception as e:
+        print(f"Xatolik yuz berdi{e}")
+
+        yuboruvchi = await get_card_by_user(msg.from_user.id)
+        yuboruvchi_id = yuboruvchi[0]
+        yuboruvchi_balance = yuboruvchi[4]  
+
+        post_yuboruvchi_balance = yuboruvchi_balance - summa
+        await update_balance(yuboruvchi_id, post_yuboruvchi_balance)
+
+        await create_services(userid, receiver_phone_num, summa)
+        await msg.answer("Pul o'tkazildi!", reply_markup=ortgaqaytish)
+        # await bot.send_message(chat_id=receiver_user_id, text=f"Sizning telefon raqamingizga {summa} so'm pul o'tkazildi!")
+        await state.clear()
 
 # ---------------------- Komunal ----------------------------
 @router_user.callback_query(F.data == 'komunal')
